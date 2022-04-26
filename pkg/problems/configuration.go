@@ -4,7 +4,7 @@ import (
 	"github.com/erodriguezg/chapter-golang/pkg/config"
 )
 
-func ConfigWithoutContainer() {
+func Config() {
 	config.ConfigAll()
 
 	barService1 := config.GetBarService1()
@@ -12,8 +12,4 @@ func ConfigWithoutContainer() {
 
 	barService1.DoBar()
 	barService2.DoBar()
-}
-
-func ConfigWithContainer() {
-
 }
