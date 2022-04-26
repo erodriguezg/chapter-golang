@@ -34,10 +34,12 @@ func configFooService2() foo.FooService {
 }
 
 func configBarService1() bar.BarService {
+	panicIfAnyNil([]interface{}{fooService1})
 	return bar.NewService(fooService1)
 }
 
 func configBarService2() bar.BarService {
+	panicIfAnyNil([]interface{}{fooService2})
 	return bar.NewService(fooService2)
 }
 
@@ -49,4 +51,17 @@ func GetBarService1() bar.BarService {
 
 func GetBarService2() bar.BarService {
 	return barService2
+}
+
+// utils
+
+func panicIfAnyNil(nilables []interface{}) {
+	if len(nilables) == 0 {
+		return
+	}
+	for _, nilable := range nilables {
+		if nilable == nil {
+			panic("an config element is nil!")
+		}
+	}
 }
