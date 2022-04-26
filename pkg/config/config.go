@@ -1,6 +1,8 @@
 package config
 
 import (
+	"fmt"
+
 	"github.com/erodriguezg/chapter-golang/pkg/bar"
 	"github.com/erodriguezg/chapter-golang/pkg/foo"
 )
@@ -61,7 +63,7 @@ func panicIfAnyNil(nilables ...interface{}) {
 	}
 	for _, nilable := range nilables {
 		if nilable == nil {
-			panic("an config element is nil!")
+			panic(fmt.Errorf("an config element is nil!"))
 		}
 	}
 }
