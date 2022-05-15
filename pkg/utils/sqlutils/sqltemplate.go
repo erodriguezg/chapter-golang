@@ -1,6 +1,10 @@
 package sqlutils
 
-import "database/sql"
+import (
+	"database/sql"
+
+	"github.com/erodriguezg/chapter-golang/pkg/utils/transaction"
+)
 
 type SqlTemplate[T any] interface {
 	QueryForArray(query string, params []interface{}) ([]T, error)
@@ -9,14 +13,24 @@ type SqlTemplate[T any] interface {
 }
 
 type defaultImpl[T any] struct {
-	db *sql.DB
+	db        *sql.DB
+	txManager transaction.TxManager[*sql.Tx]
 }
 
-func NewSqlTemplate[T any](db *sql.DB) SqlTemplate[T] {
-	return &defaultImpl[T]{db}
+func NewSqlTemplate[T any](db *sql.DB, txManager transaction.TxManager[*sql.Tx]) SqlTemplate[T] {
+	return &defaultImpl[T]{db, txManager}
 }
 
 func (impl *defaultImpl[T]) QueryForArray(query string, params []interface{}) ([]T, error) {
+
+	tx, err := impl.txManager.GetTx()
+	if err != nil {
+		return nil, err
+	}
+
+	if tx != nil {
+		return nil, nil
+	}
 
 	// aqui cierra conexion
 
