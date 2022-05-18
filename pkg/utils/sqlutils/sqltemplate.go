@@ -1,15 +1,16 @@
 package sqlutils
 
 import (
+	"context"
 	"database/sql"
 
 	"github.com/erodriguezg/chapter-golang/pkg/utils/transaction"
 )
 
 type SqlTemplate[T any] interface {
-	QueryForArray(query string, params []interface{}, mapperFunc func(rows *sql.Rows) (T, error)) ([]T, error)
-	QueryForOne(query string, params []interface{}, mapperFunc func(row *sql.Row) (T, error)) (*T, error)
-	Update(sql string, params []interface{}) (interface{}, error)
+	QueryForArray(ctx context.Context, query string, params []interface{}, mapperFunc func(rows *sql.Rows) (T, error)) ([]T, error)
+	QueryForOne(ctx context.Context, query string, params []interface{}, mapperFunc func(row *sql.Row) (T, error)) (*T, error)
+	Exec(ctx context.Context, sql string, params []interface{}) (int64, error)
 }
 
 type defaultImpl[T any] struct {
@@ -21,8 +22,8 @@ func NewSqlTemplate[T any](db *sql.DB, txManager transaction.TxManager[*sql.Tx])
 	return &defaultImpl[T]{db, txManager}
 }
 
-func (impl *defaultImpl[T]) QueryForArray(query string, params []interface{}, mapperFunc func(rows *sql.Rows) (T, error)) ([]T, error) {
-	tx, err := impl.txManager.GetTx()
+func (impl *defaultImpl[T]) QueryForArray(ctx context.Context, query string, params []interface{}, mapperFunc func(rows *sql.Rows) (T, error)) ([]T, error) {
+	tx, err := impl.txManager.GetTx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -30,7 +31,7 @@ func (impl *defaultImpl[T]) QueryForArray(query string, params []interface{}, ma
 	var rows *sql.Rows
 
 	if tx != nil {
-		rows, err = tx.Query(query, params...)
+		rows, err = (*tx).Query(query, params...)
 	} else {
 		rows, err = impl.db.Query(query, params...)
 	}
@@ -50,8 +51,8 @@ func (impl *defaultImpl[T]) QueryForArray(query string, params []interface{}, ma
 	return outputArray, nil
 }
 
-func (impl *defaultImpl[T]) QueryForOne(query string, params []interface{}, mapperFunc func(row *sql.Row) (T, error)) (*T, error) {
-	tx, err := impl.txManager.GetTx()
+func (impl *defaultImpl[T]) QueryForOne(ctx context.Context, query string, params []interface{}, mapperFunc func(row *sql.Row) (T, error)) (*T, error) {
+	tx, err := impl.txManager.GetTx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +60,7 @@ func (impl *defaultImpl[T]) QueryForOne(query string, params []interface{}, mapp
 	var row *sql.Row
 
 	if tx != nil {
-		row = tx.QueryRow(query, params...)
+		row = (*tx).QueryRow(query, params...)
 	} else {
 		row = impl.db.QueryRow(query, params...)
 	}
@@ -74,6 +75,29 @@ func (impl *defaultImpl[T]) QueryForOne(query string, params []interface{}, mapp
 	return &aux, nil
 }
 
-func (impl *defaultImpl[T]) Update(sql string, params []interface{}) (interface{}, error) {
-	return nil, nil
+func (impl *defaultImpl[T]) Exec(ctx context.Context, query string, params []interface{}) (int64, error) {
+
+	tx, err := impl.txManager.GetTx(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	var result sql.Result
+
+	if tx != nil {
+		result, err = (*tx).Exec(query, params...)
+	} else {
+		result, err = impl.db.Exec(query, params...)
+	}
+
+	if err != nil {
+		return 0, err
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+
+	return id, nil
 }
