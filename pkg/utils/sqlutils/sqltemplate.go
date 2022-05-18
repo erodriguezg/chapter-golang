@@ -3,13 +3,14 @@ package sqlutils
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"github.com/erodriguezg/chapter-golang/pkg/utils/transaction"
 )
 
 type SqlTemplate[T any] interface {
 	QueryForArray(ctx context.Context, query string, params []interface{}, mapperFunc func(rows *sql.Rows) (T, error)) ([]T, error)
-	QueryForOne(ctx context.Context, query string, params []interface{}, mapperFunc func(row *sql.Row) (T, error)) (*T, error)
+	QueryForOne(ctx context.Context, query string, params []interface{}, mapperFunc func(rows *sql.Rows) (T, error)) (*T, error)
 	Exec(ctx context.Context, sql string, params []interface{}) (int64, error)
 }
 
@@ -51,28 +52,38 @@ func (impl *defaultImpl[T]) QueryForArray(ctx context.Context, query string, par
 	return outputArray, nil
 }
 
-func (impl *defaultImpl[T]) QueryForOne(ctx context.Context, query string, params []interface{}, mapperFunc func(row *sql.Row) (T, error)) (*T, error) {
+func (impl *defaultImpl[T]) QueryForOne(ctx context.Context, query string, params []interface{}, mapperFunc func(rows *sql.Rows) (T, error)) (*T, error) {
 	tx, err := impl.txManager.GetTx(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	var row *sql.Row
+	var rows *sql.Rows
 
 	if tx != nil {
-		row = (*tx).QueryRow(query, params...)
+		rows, err = (*tx).Query(query, params...)
 	} else {
-		row = impl.db.QueryRow(query, params...)
+		rows, err = impl.db.Query(query, params...)
 	}
 
-	aux, err := mapperFunc(row)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
-	return &aux, nil
+
+	defer rows.Close()
+
+	if !rows.Next() {
+		return nil, nil
+	}
+
+	var output T
+	output, err = mapperFunc(rows)
+
+	if rows.Next() {
+		return nil, fmt.Errorf("no unique result for query")
+	}
+
+	return &output, nil
 }
 
 func (impl *defaultImpl[T]) Exec(ctx context.Context, query string, params []interface{}) (int64, error) {
