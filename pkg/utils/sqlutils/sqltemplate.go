@@ -14,16 +14,16 @@ type SqlTemplate[T any] interface {
 	Exec(ctx context.Context, sql string, params []interface{}) (int64, error)
 }
 
-type defaultImpl[T any] struct {
+type databaseSqlTemplate[T any] struct {
 	db        *sql.DB
 	txManager transaction.TxManager[*sql.Tx]
 }
 
 func NewSqlTemplate[T any](db *sql.DB, txManager transaction.TxManager[*sql.Tx]) SqlTemplate[T] {
-	return &defaultImpl[T]{db, txManager}
+	return &databaseSqlTemplate[T]{db, txManager}
 }
 
-func (impl *defaultImpl[T]) QueryForArray(ctx context.Context, query string, params []interface{}, mapperFunc func(rows *sql.Rows) (T, error)) ([]T, error) {
+func (impl *databaseSqlTemplate[T]) QueryForArray(ctx context.Context, query string, params []interface{}, mapperFunc func(rows *sql.Rows) (T, error)) ([]T, error) {
 	tx, err := impl.txManager.GetTx(ctx)
 	if err != nil {
 		return nil, err
@@ -32,7 +32,7 @@ func (impl *defaultImpl[T]) QueryForArray(ctx context.Context, query string, par
 	var rows *sql.Rows
 
 	if tx != nil {
-		rows, err = (*tx).Query(query, params...)
+		rows, err = tx.Query(query, params...)
 	} else {
 		rows, err = impl.db.Query(query, params...)
 	}
@@ -52,7 +52,7 @@ func (impl *defaultImpl[T]) QueryForArray(ctx context.Context, query string, par
 	return outputArray, nil
 }
 
-func (impl *defaultImpl[T]) QueryForOne(ctx context.Context, query string, params []interface{}, mapperFunc func(rows *sql.Rows) (T, error)) (*T, error) {
+func (impl *databaseSqlTemplate[T]) QueryForOne(ctx context.Context, query string, params []interface{}, mapperFunc func(rows *sql.Rows) (T, error)) (*T, error) {
 	tx, err := impl.txManager.GetTx(ctx)
 	if err != nil {
 		return nil, err
@@ -61,7 +61,7 @@ func (impl *defaultImpl[T]) QueryForOne(ctx context.Context, query string, param
 	var rows *sql.Rows
 
 	if tx != nil {
-		rows, err = (*tx).Query(query, params...)
+		rows, err = tx.Query(query, params...)
 	} else {
 		rows, err = impl.db.Query(query, params...)
 	}
@@ -86,7 +86,7 @@ func (impl *defaultImpl[T]) QueryForOne(ctx context.Context, query string, param
 	return &output, nil
 }
 
-func (impl *defaultImpl[T]) Exec(ctx context.Context, query string, params []interface{}) (int64, error) {
+func (impl *databaseSqlTemplate[T]) Exec(ctx context.Context, query string, params []interface{}) (int64, error) {
 
 	tx, err := impl.txManager.GetTx(ctx)
 	if err != nil {
@@ -96,7 +96,7 @@ func (impl *defaultImpl[T]) Exec(ctx context.Context, query string, params []int
 	var result sql.Result
 
 	if tx != nil {
-		result, err = (*tx).Exec(query, params...)
+		result, err = tx.Exec(query, params...)
 	} else {
 		result, err = impl.db.Exec(query, params...)
 	}
