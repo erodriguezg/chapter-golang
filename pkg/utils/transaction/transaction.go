@@ -8,6 +8,8 @@ import (
 
 const (
 	txContextKey = "txContextKey"
+
+	txErrorNoTransactionActive = "no transaction active!"
 )
 
 type TxManager[T any] interface {
@@ -74,7 +76,7 @@ func (m *sqlTxManager) Commit(ctx context.Context) error {
 		return err
 	}
 	if tx == nil {
-		return fmt.Errorf("no transaction active!")
+		return fmt.Errorf(txErrorNoTransactionActive)
 	}
 	return tx.Commit()
 }
@@ -85,7 +87,7 @@ func (m *sqlTxManager) Rollback(ctx context.Context) error {
 		return err
 	}
 	if tx == nil {
-		return fmt.Errorf("no transaction active!")
+		return fmt.Errorf(txErrorNoTransactionActive)
 	}
 	return tx.Rollback()
 }
