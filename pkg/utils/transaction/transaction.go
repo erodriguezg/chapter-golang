@@ -12,20 +12,40 @@ const (
 
 type TxManager[T any] interface {
 	Begin(context.Context) (context.Context, error)
-	GetTx(context.Context) (*T, error)
+	GetTx(context.Context) (T, error)
 	Commit(context.Context) error
-	Rollback(context.Context)
+	Rollback(context.Context) error
 }
 
-type defaultTxManager[T any] struct {
+type sqlTxManager struct {
 	db *sql.DB
 }
 
-func NewTxManager[T any](db *sql.DB) TxManager[T] {
-	return &defaultTxManager[T]{db}
+func NewSqlTxManager(db *sql.DB) TxManager[*sql.Tx] {
+	return &sqlTxManager{db}
 }
 
-func (m *defaultTxManager[T]) Begin(ctx context.Context) (context.Context, error) {
+func (m *sqlTxManager) Begin(ctx context.Context) (context.Context, error) {
+
+	if ctx == nil {
+		return nil, nil
+	}
+
+	// search for an existing transaction
+
+	beforeTx, err := m.GetTx(ctx)
+	if err != nil {
+		return ctx, err
+	}
+
+	// use the actual transacction
+
+	if beforeTx != nil {
+		return ctx, nil
+	}
+
+	// no existing transaction, create new
+
 	tx, err := m.db.Begin()
 	if err != nil {
 		return nil, err
@@ -33,7 +53,7 @@ func (m *defaultTxManager[T]) Begin(ctx context.Context) (context.Context, error
 	return context.WithValue(ctx, txContextKey, tx), nil
 }
 
-func (m *defaultTxManager[T]) GetTx(ctx context.Context) (*T, error) {
+func (m *sqlTxManager) GetTx(ctx context.Context) (*sql.Tx, error) {
 	if ctx == nil {
 		return nil, nil
 	}
@@ -41,17 +61,31 @@ func (m *defaultTxManager[T]) GetTx(ctx context.Context) (*T, error) {
 	if tx == nil {
 		return nil, nil
 	}
-	aux, ok := tx.(T)
+	aux, ok := tx.(*sql.Tx)
 	if !ok {
 		return nil, fmt.Errorf("problem casting tx")
 	}
-	return &aux, nil
+	return aux, nil
 }
 
-func (m *defaultTxManager[T]) Commit(ctx context.Context) error {
-	return nil
+func (m *sqlTxManager) Commit(ctx context.Context) error {
+	tx, err := m.GetTx(ctx)
+	if err != nil {
+		return err
+	}
+	if tx == nil {
+		return fmt.Errorf("no transaction active!")
+	}
+	return tx.Commit()
 }
 
-func (m *defaultTxManager[T]) Rollback(ctx context.Context) {
-
+func (m *sqlTxManager) Rollback(ctx context.Context) error {
+	tx, err := m.GetTx(ctx)
+	if err != nil {
+		return err
+	}
+	if tx == nil {
+		return fmt.Errorf("no transaction active!")
+	}
+	return tx.Rollback()
 }

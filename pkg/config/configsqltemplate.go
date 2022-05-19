@@ -64,7 +64,7 @@ func configPostgresDatabase() *sql.DB {
 }
 
 func configTxManager() transaction.TxManager[*sql.Tx] {
-	return transaction.NewTxManager[*sql.Tx](postgresqlDB)
+	return transaction.NewSqlTxManager(postgresqlDB)
 }
 
 func configPersonRepository() demosql.PersonRepository {
