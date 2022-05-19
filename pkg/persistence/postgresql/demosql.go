@@ -23,52 +23,54 @@ func NewPersonRepository(db *sql.DB, txManager transaction.TxManager[*sql.Tx]) d
 
 func (r *personRepo) Insert(ctx context.Context, person *demosql.Person) (*demosql.Person, error) {
 	query := `INSERT INTO persons (rut, first_name, last_name, birthday, active) 
-			  VALUES ($1, $2, $3, $4, $5)`
+			  VALUES ($1, $2, $3, $4, $5) RETURNING %s`
+
+	query = fmt.Sprintf(query, personQueryProjection)
 
 	params := []interface{}{person.Rut, person.FirstName, person.LastName, person.BirthDay, person.Active}
 
-	id, err := r.sqlTemplate.Exec(ctx, query, params)
+	person, err := r.sqlTemplate.QueryForOne(ctx, query, params, r.fullMapper)
 	if err != nil {
 		return nil, err
 	}
-
-	person.Id = &id
 	return person, nil
 }
 
 func (r *personRepo) Update(ctx context.Context, person *demosql.Person) (*demosql.Person, error) {
 	query :=
 		`UPDATE persons SET
-	rut=$1, 
-	first_name=$2, 
-	last_name=$3, 
-	birthday=$4, 
-	active=$5 
-	WHERE id=$6`
+		rut=$1, 
+		first_name=$2, 
+		last_name=$3, 
+		birthday=$4, 
+		active=$5 
+		WHERE id=$6 
+		RETURNING %s`
 
-	params := []interface{}{person.Rut, person.FirstName, person.LastName, person.BirthDay, person.Active}
+	query = fmt.Sprintf(query, personQueryProjection)
 
-	_, err := r.sqlTemplate.Exec(ctx, query, params)
+	params := []interface{}{person.Rut, person.FirstName, person.LastName, person.BirthDay, person.Active, person.Id}
+
+	person, err := r.sqlTemplate.QueryForOne(ctx, query, params, r.fullMapper)
 	if err != nil {
 		return nil, err
 	}
-
 	return person, nil
 }
 
 func (r *personRepo) Delete(ctx context.Context, person *demosql.Person) error {
-	query := fmt.Sprintf("DELETE FROM persons WHERE id=$1")
+	query := fmt.Sprintf("DELETE FROM persons WHERE id=$1 RETURNING id")
 
 	params := []interface{}{*person.Id}
 
-	_, err := r.sqlTemplate.Exec(ctx, query, params)
+	_, err := r.sqlTemplate.QueryForOne(ctx, query, params, r.idOnlyMapper)
 	return err
 }
 
 func (r *personRepo) GetAll(ctx context.Context) ([]demosql.Person, error) {
 	query := fmt.Sprintf("SELECT %s FROM persons", personQueryProjection)
 
-	return r.sqlTemplate.QueryForArray(ctx, query, nil, r.mapper)
+	return r.sqlTemplate.QueryForArray(ctx, query, nil, r.fullMapper)
 }
 
 func (r *personRepo) FindByRut(ctx context.Context, rut int) (*demosql.Person, error) {
@@ -76,13 +78,19 @@ func (r *personRepo) FindByRut(ctx context.Context, rut int) (*demosql.Person, e
 
 	params := []interface{}{rut}
 
-	return r.sqlTemplate.QueryForOne(ctx, query, params, r.mapper)
+	return r.sqlTemplate.QueryForOne(ctx, query, params, r.fullMapper)
 }
 
 // privates
 
-func (r *personRepo) mapper(rows *sql.Rows) (demosql.Person, error) {
+func (r *personRepo) fullMapper(rows *sql.Rows) (demosql.Person, error) {
 	var p demosql.Person
-	err := rows.Scan(&p.Id, &p.FirstName, &p.LastName, &p.BirthDay, &p.Active)
+	err := rows.Scan(&p.Id, &p.Rut, &p.FirstName, &p.LastName, &p.BirthDay, &p.Active)
+	return p, err
+}
+
+func (r *personRepo) idOnlyMapper(rows *sql.Rows) (demosql.Person, error) {
+	var p demosql.Person
+	err := rows.Scan(&p.Id, &p.Rut, &p.FirstName, &p.LastName, &p.BirthDay, &p.Active)
 	return p, err
 }
