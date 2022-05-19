@@ -7,7 +7,6 @@ import (
 
 	"github.com/erodriguezg/chapter-golang/pkg/demosql"
 	"github.com/erodriguezg/chapter-golang/pkg/utils/sqlutils"
-	"github.com/erodriguezg/chapter-golang/pkg/utils/transaction"
 )
 
 const personQueryProjection = "id, rut, first_name, last_name, birthday, active"
@@ -16,8 +15,7 @@ type personRepo struct {
 	sqlTemplate sqlutils.SqlTemplate[demosql.Person]
 }
 
-func NewPersonRepository(db *sql.DB, txManager transaction.TxManager[*sql.Tx]) demosql.PersonRepository {
-	sqlTemplate := sqlutils.NewSqlTemplate[demosql.Person](db, txManager)
+func NewPersonRepository(sqlTemplate sqlutils.SqlTemplate[demosql.Person]) demosql.PersonRepository {
 	return &personRepo{sqlTemplate}
 }
 
@@ -91,6 +89,6 @@ func (r *personRepo) fullMapper(rows *sql.Rows) (demosql.Person, error) {
 
 func (r *personRepo) idOnlyMapper(rows *sql.Rows) (demosql.Person, error) {
 	var p demosql.Person
-	err := rows.Scan(&p.Id, &p.Rut, &p.FirstName, &p.LastName, &p.BirthDay, &p.Active)
+	err := rows.Scan(&p.Id)
 	return p, err
 }

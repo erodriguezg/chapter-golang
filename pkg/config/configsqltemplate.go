@@ -7,6 +7,7 @@ import (
 
 	"github.com/erodriguezg/chapter-golang/pkg/demosql"
 	"github.com/erodriguezg/chapter-golang/pkg/persistence/postgresql"
+	"github.com/erodriguezg/chapter-golang/pkg/utils/sqlutils"
 	"github.com/erodriguezg/chapter-golang/pkg/utils/transaction"
 	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/joho/godotenv"
@@ -15,8 +16,8 @@ import (
 var (
 
 	// Database
-	postgresqlDB *sql.DB
-	txManager    transaction.TxManager[*sql.Tx]
+	sqlDatabase *sql.DB
+	txManager   transaction.TxManager[*sql.Tx]
 
 	// Business
 	personRepository demosql.PersonRepository
@@ -31,7 +32,7 @@ func ConfigDemoSqlAll() {
 	}
 
 	// Database
-	postgresqlDB = configPostgresDatabase()
+	sqlDatabase = configPostgresDatabase()
 	txManager = configTxManager()
 
 	// Business
@@ -45,7 +46,7 @@ func GetPersonService() demosql.PersonService {
 }
 
 func CloseDemoSqlAll() {
-	err := postgresqlDB.Close()
+	err := sqlDatabase.Close()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error closing postgresql DB: %v\n", err)
 	}
@@ -64,13 +65,17 @@ func configPostgresDatabase() *sql.DB {
 }
 
 func configTxManager() transaction.TxManager[*sql.Tx] {
-	return transaction.NewSqlTxManager(postgresqlDB)
+	panicIfAnyNil(sqlDatabase)
+	return transaction.NewSqlTxManager(sqlDatabase)
 }
 
 func configPersonRepository() demosql.PersonRepository {
-	return postgresql.NewPersonRepository(postgresqlDB, txManager)
+	panicIfAnyNil(sqlDatabase, txManager)
+	sqlTemplate := sqlutils.NewDatabaseSqlTemplate[demosql.Person](sqlDatabase, txManager)
+	return postgresql.NewPersonRepository(sqlTemplate)
 }
 
 func configDemoService() demosql.PersonService {
+	panicIfAnyNil(personRepository)
 	return demosql.NewPersonService(personRepository)
 }

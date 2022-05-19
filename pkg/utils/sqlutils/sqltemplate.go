@@ -19,7 +19,7 @@ type databaseSqlTemplate[T any] struct {
 	txManager transaction.TxManager[*sql.Tx]
 }
 
-func NewSqlTemplate[T any](db *sql.DB, txManager transaction.TxManager[*sql.Tx]) SqlTemplate[T] {
+func NewDatabaseSqlTemplate[T any](db *sql.DB, txManager transaction.TxManager[*sql.Tx]) SqlTemplate[T] {
 	return &databaseSqlTemplate[T]{db, txManager}
 }
 
