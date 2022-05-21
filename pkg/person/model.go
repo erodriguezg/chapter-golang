@@ -1,4 +1,4 @@
-package demosql
+package person
 
 import "time"
 

@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/erodriguezg/chapter-golang/pkg/config"
-	"github.com/erodriguezg/chapter-golang/pkg/demosql"
+	"github.com/erodriguezg/chapter-golang/pkg/person"
 	"github.com/erodriguezg/chapter-golang/pkg/problems"
 )
 
@@ -33,7 +33,7 @@ func mainSqlTemplate() {
 
 	personService := config.GetPersonService()
 
-	person := demosql.Person{
+	person := person.Person{
 		Rut:       11111111,
 		FirstName: "Pedrito",
 		LastName:  "Fuenzalida",

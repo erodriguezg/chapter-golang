@@ -5,21 +5,21 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/erodriguezg/chapter-golang/pkg/demosql"
+	"github.com/erodriguezg/chapter-golang/pkg/person"
 	"github.com/erodriguezg/chapter-golang/pkg/utils/sqlutils"
 )
 
 const personQueryProjection = "id, rut, first_name, last_name, birthday, active"
 
 type personRepo struct {
-	sqlTemplate sqlutils.SqlTemplate[demosql.Person]
+	sqlTemplate sqlutils.SqlTemplate[person.Person]
 }
 
-func NewPersonRepository(sqlTemplate sqlutils.SqlTemplate[demosql.Person]) demosql.PersonRepository {
+func NewPersonRepository(sqlTemplate sqlutils.SqlTemplate[person.Person]) person.PersonRepository {
 	return &personRepo{sqlTemplate}
 }
 
-func (r *personRepo) Insert(ctx context.Context, person *demosql.Person) (*demosql.Person, error) {
+func (r *personRepo) Insert(ctx context.Context, person *person.Person) (*person.Person, error) {
 	query := `INSERT INTO persons (rut, first_name, last_name, birthday, active) 
 			  VALUES ($1, $2, $3, $4, $5) RETURNING %s`
 
@@ -27,14 +27,11 @@ func (r *personRepo) Insert(ctx context.Context, person *demosql.Person) (*demos
 
 	params := []interface{}{person.Rut, person.FirstName, person.LastName, person.BirthDay, person.Active}
 
-	person, err := r.sqlTemplate.QueryForOne(ctx, query, params, r.fullMapper)
-	if err != nil {
-		return nil, err
-	}
-	return person, nil
+	return r.sqlTemplate.QueryForOne(ctx, query, params, r.fullMapper)
+
 }
 
-func (r *personRepo) Update(ctx context.Context, person *demosql.Person) (*demosql.Person, error) {
+func (r *personRepo) Update(ctx context.Context, person *person.Person) (*person.Person, error) {
 	query :=
 		`UPDATE persons SET
 		rut=$1, 
@@ -47,16 +44,12 @@ func (r *personRepo) Update(ctx context.Context, person *demosql.Person) (*demos
 
 	query = fmt.Sprintf(query, personQueryProjection)
 
-	params := []interface{}{person.Rut, person.FirstName, person.LastName, person.BirthDay, person.Active, person.Id}
+	params := []interface{}{person.Rut, person.FirstName, person.LastName, person.BirthDay, person.Active, *person.Id}
 
-	person, err := r.sqlTemplate.QueryForOne(ctx, query, params, r.fullMapper)
-	if err != nil {
-		return nil, err
-	}
-	return person, nil
+	return r.sqlTemplate.QueryForOne(ctx, query, params, r.fullMapper)
 }
 
-func (r *personRepo) Delete(ctx context.Context, person *demosql.Person) error {
+func (r *personRepo) Delete(ctx context.Context, person *person.Person) error {
 	query := fmt.Sprintf("DELETE FROM persons WHERE id=$1 RETURNING id")
 
 	params := []interface{}{*person.Id}
@@ -65,13 +58,13 @@ func (r *personRepo) Delete(ctx context.Context, person *demosql.Person) error {
 	return err
 }
 
-func (r *personRepo) GetAll(ctx context.Context) ([]demosql.Person, error) {
+func (r *personRepo) GetAll(ctx context.Context) ([]person.Person, error) {
 	query := fmt.Sprintf("SELECT %s FROM persons", personQueryProjection)
 
 	return r.sqlTemplate.QueryForArray(ctx, query, nil, r.fullMapper)
 }
 
-func (r *personRepo) FindByRut(ctx context.Context, rut int) (*demosql.Person, error) {
+func (r *personRepo) FindByRut(ctx context.Context, rut int) (*person.Person, error) {
 	query := fmt.Sprintf("SELECT %s FROM persons WHERE rut=$1", personQueryProjection)
 
 	params := []interface{}{rut}
@@ -81,14 +74,14 @@ func (r *personRepo) FindByRut(ctx context.Context, rut int) (*demosql.Person, e
 
 // privates
 
-func (r *personRepo) fullMapper(rows *sql.Rows) (demosql.Person, error) {
-	var p demosql.Person
+func (r *personRepo) fullMapper(rows *sql.Rows) (person.Person, error) {
+	var p person.Person
 	err := rows.Scan(&p.Id, &p.Rut, &p.FirstName, &p.LastName, &p.BirthDay, &p.Active)
 	return p, err
 }
 
-func (r *personRepo) idOnlyMapper(rows *sql.Rows) (demosql.Person, error) {
-	var p demosql.Person
+func (r *personRepo) idOnlyMapper(rows *sql.Rows) (person.Person, error) {
+	var p person.Person
 	err := rows.Scan(&p.Id)
 	return p, err
 }

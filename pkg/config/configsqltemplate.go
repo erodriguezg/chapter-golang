@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/erodriguezg/chapter-golang/pkg/demosql"
 	"github.com/erodriguezg/chapter-golang/pkg/persistence/postgresql"
+	"github.com/erodriguezg/chapter-golang/pkg/person"
 	"github.com/erodriguezg/chapter-golang/pkg/utils/sqlutils"
 	"github.com/erodriguezg/chapter-golang/pkg/utils/transaction"
 	_ "github.com/jackc/pgx/v4/stdlib"
@@ -20,8 +20,8 @@ var (
 	txManager   transaction.TxManager[*sql.Tx]
 
 	// Business
-	personRepository demosql.PersonRepository
-	personService    demosql.PersonService
+	personRepository person.PersonRepository
+	personService    person.PersonService
 )
 
 func ConfigDemoSqlAll() {
@@ -41,7 +41,7 @@ func ConfigDemoSqlAll() {
 
 }
 
-func GetPersonService() demosql.PersonService {
+func GetPersonService() person.PersonService {
 	return personService
 }
 
@@ -69,13 +69,13 @@ func configTxManager() transaction.TxManager[*sql.Tx] {
 	return transaction.NewSqlTxManager(sqlDatabase)
 }
 
-func configPersonRepository() demosql.PersonRepository {
+func configPersonRepository() person.PersonRepository {
 	panicIfAnyNil(sqlDatabase, txManager)
-	sqlTemplate := sqlutils.NewDatabaseSqlTemplate[demosql.Person](sqlDatabase, txManager)
+	sqlTemplate := sqlutils.NewDatabaseSqlTemplate[person.Person](sqlDatabase, txManager)
 	return postgresql.NewPersonRepository(sqlTemplate)
 }
 
-func configDemoService() demosql.PersonService {
+func configDemoService() person.PersonService {
 	panicIfAnyNil(personRepository)
-	return demosql.NewPersonService(personRepository)
+	return person.NewPersonService(personRepository)
 }
