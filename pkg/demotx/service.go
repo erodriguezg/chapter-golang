@@ -28,11 +28,40 @@ func NewService(
 }
 
 func (s *defaultService) ProcessWithTx(fail bool) error {
+
+	// With transaction!
+
+	fmt.Println("\n\n==================================")
+	fmt.Println("STARTING TX")
+	fmt.Println("==================================")
+
 	ctx, err := s.txManager.Begin(context.TODO())
 	if err != nil {
 		return fmt.Errorf("error starting the transaction: \n%v \n", err)
 	}
-	return s.process(ctx, fail)
+
+	err = s.process(ctx, fail)
+	if err != nil {
+
+		fmt.Println("\n\n==================================")
+		fmt.Println("ROLLBACK TX")
+		fmt.Println("==================================")
+
+		if errRoll := s.txManager.Rollback(ctx); errRoll != nil {
+			return errRoll
+		}
+		return err
+	}
+
+	fmt.Println("\n\n==================================")
+	fmt.Println("COMMIT TX")
+	fmt.Println("==================================")
+
+	if errCommit := s.txManager.Commit(ctx); errCommit != nil {
+		return errCommit
+	}
+
+	return nil
 }
 
 func (s *defaultService) ProcessWithoutTx(fail bool) error {
@@ -103,7 +132,7 @@ func (s *defaultService) process(ctx context.Context, fail bool) error {
 
 	err = s.personService.Delete(nil, updatedPerson)
 	if err != nil {
-		fmt.Errorf("han error has occuried deleting person: \n%v \n", err)
+		return fmt.Errorf("han error has occuried deleting person: \n%v \n", err)
 	}
 	fmt.Printf("a person with id %d has been deleted \n", *updatedPerson.Id)
 
