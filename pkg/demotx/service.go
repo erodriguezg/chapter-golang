@@ -10,8 +10,8 @@ import (
 )
 
 type DemoTxService interface {
-	ProcessWithTx(fail bool) error
-	ProcessWithoutTx(fail bool) error
+	ProcessWithTx(delete bool, fail bool) error
+	ProcessWithoutTx(delete bool, fail bool) error
 }
 
 type defaultService struct {
@@ -27,7 +27,7 @@ func NewService(
 	return &defaultService{personService, petService, txManager}
 }
 
-func (s *defaultService) ProcessWithTx(fail bool) error {
+func (s *defaultService) ProcessWithTx(delete bool, fail bool) error {
 
 	// With transaction!
 
@@ -35,12 +35,12 @@ func (s *defaultService) ProcessWithTx(fail bool) error {
 	fmt.Println("STARTING TX")
 	fmt.Println("==================================")
 
-	ctx, err := s.txManager.Begin(context.TODO())
+	ctx, err := s.txManager.Begin(context.Background())
 	if err != nil {
 		return fmt.Errorf("error starting the transaction: \n%v \n", err)
 	}
 
-	err = s.process(ctx, fail)
+	err = s.process(ctx, delete, fail)
 	if err != nil {
 
 		fmt.Println("\n\n==================================")
@@ -64,16 +64,16 @@ func (s *defaultService) ProcessWithTx(fail bool) error {
 	return nil
 }
 
-func (s *defaultService) ProcessWithoutTx(fail bool) error {
+func (s *defaultService) ProcessWithoutTx(delete bool, fail bool) error {
 
 	// No transaction!
 
-	return s.process(context.TODO(), fail)
+	return s.process(context.Background(), delete, fail)
 }
 
 // private
 
-func (s *defaultService) process(ctx context.Context, fail bool) error {
+func (s *defaultService) process(ctx context.Context, delete bool, fail bool) error {
 
 	person := person.Person{
 		Rut:       11111111,
@@ -87,16 +87,11 @@ func (s *defaultService) process(ctx context.Context, fail bool) error {
 	fmt.Println("INSERT PERSON")
 	fmt.Println("==================================")
 
-	newPerson, err := s.personService.Save(nil, &person)
+	newPerson, err := s.personService.Save(ctx, &person)
 	if err != nil {
 		return fmt.Errorf("han error has occuried saving person: \n%v \n", err)
 	}
 	fmt.Printf("a person with id %d has been created \n", *newPerson.Id)
-
-	err = s.addPetsToPerson(ctx, newPerson)
-	if err != nil {
-		return err
-	}
 
 	fmt.Println("\n\n==================================")
 	fmt.Println("UPDATE PERSON")
@@ -105,7 +100,7 @@ func (s *defaultService) process(ctx context.Context, fail bool) error {
 	newPerson.Rut = 22222222
 	newPerson.Active = false
 
-	updatedPerson, err := s.personService.Save(nil, newPerson)
+	updatedPerson, err := s.personService.Save(ctx, newPerson)
 	if err != nil {
 		return fmt.Errorf("han error has occuried updating person: \n%v \n", err)
 	}
@@ -115,13 +110,26 @@ func (s *defaultService) process(ctx context.Context, fail bool) error {
 	fmt.Println("SEARCH ONE PERSON")
 	fmt.Println("==================================")
 
-	foundPerson, err := s.personService.FindByRut(nil, updatedPerson.Rut)
+	foundPerson, err := s.personService.FindByRut(ctx, updatedPerson.Rut)
 	if err != nil {
 		return fmt.Errorf("han error has occuried search one person: \n%v \n", err)
 	}
 	fmt.Printf("a person is found %v \n", *foundPerson)
 
-	err = s.deletePetsFromPerson(foundPerson)
+	err = s.addPetsToPerson(ctx, foundPerson)
+	if err != nil {
+		return err
+	}
+
+	if fail == true {
+		return fmt.Errorf("forcing the error!")
+	}
+
+	if delete == false {
+		return nil
+	}
+
+	err = s.deletePetsFromPerson(ctx, foundPerson)
 	if err != nil {
 		return err
 	}
@@ -130,7 +138,7 @@ func (s *defaultService) process(ctx context.Context, fail bool) error {
 	fmt.Println("DELETE PERSON")
 	fmt.Println("==================================")
 
-	err = s.personService.Delete(nil, updatedPerson)
+	err = s.personService.Delete(ctx, updatedPerson)
 	if err != nil {
 		return fmt.Errorf("han error has occuried deleting person: \n%v \n", err)
 	}
@@ -145,19 +153,18 @@ func (s *defaultService) addPetsToPerson(ctx context.Context, person *person.Per
 	fmt.Println("ADD PETS TO PERSON")
 	fmt.Println("==================================")
 
-	newPet := pet.Pet{
-		OwnerRut: person.Rut,
-		Name:     "Reptiliano",
-		Race:     "perro",
+	pets := []pet.Pet{
+		{
+			OwnerRut: person.Rut,
+			Name:     "Reptiliano",
+			Race:     "perro",
+		},
+		{
+			OwnerRut: person.Rut,
+			Name:     "Bestia",
+			Race:     "gato",
+		},
 	}
-
-	otherPet := pet.Pet{
-		OwnerRut: person.Rut,
-		Name:     "Bestia",
-		Race:     "gato",
-	}
-
-	pets := []pet.Pet{newPet, otherPet}
 
 	for _, itPet := range pets {
 		_, err := s.petService.Save(ctx, &itPet)
@@ -169,15 +176,25 @@ func (s *defaultService) addPetsToPerson(ctx context.Context, person *person.Per
 	return nil
 }
 
-func (s *defaultService) deletePetsFromPerson(person *person.Person) error {
+func (s *defaultService) deletePetsFromPerson(ctx context.Context, person *person.Person) error {
 
 	fmt.Println("\n\n==================================")
 	fmt.Println("FIND ALL PET FROM PERSON")
 	fmt.Println("==================================")
 
+	pets, err := s.petService.FindByOwnerRut(ctx, person.Rut)
+	if err != nil {
+		return nil
+	}
+
 	fmt.Println("\n\n==================================")
 	fmt.Println("DELETE ALL PET FROM PERSON")
 	fmt.Println("==================================")
 
+	for _, itPet := range pets {
+		if errDel := s.petService.Delete(ctx, &itPet); errDel != nil {
+			return errDel
+		}
+	}
 	return nil
 }

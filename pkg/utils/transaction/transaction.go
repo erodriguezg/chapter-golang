@@ -37,14 +37,17 @@ func (m *sqlTxManager) Begin(ctx context.Context) (context.Context, error) {
 
 	// search for an existing transaction
 
-	beforeTx, err := m.getSqlTxManagerFromContext(ctx)
+	beforeTx, err := m.GetTx(ctx)
 	if err != nil {
-		return ctx, err
+		return nil, err
 	}
 
-	// use the actual transacction
-
 	if beforeTx != nil {
+		// use the before transaction
+		_, ok := beforeTx.(*sql.Tx)
+		if !ok {
+			return nil, fmt.Errorf(txErrorNoSqlTransaction)
+		}
 		return ctx, nil
 	}
 

@@ -48,12 +48,13 @@ func ConfigDemoSqlAll() {
 
 	// Services
 	personService = configDemoService()
+	petService = configPetService()
 	demoTxService = configDemoTxService()
 
 }
 
-func GetPersonService() person.PersonService {
-	return personService
+func GetDemoTxService() demotx.DemoTxService {
+	return demoTxService
 }
 
 func CloseDemoSqlAll() {
