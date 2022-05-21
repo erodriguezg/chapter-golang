@@ -10,11 +10,13 @@ const (
 	txContextKey = "txContextKey"
 
 	txErrorNoTransactionActive = "no transaction active!"
+
+	txErrorNoSqlTransaction = "the transaction is not a sql type!"
 )
 
-type TxManager[T any] interface {
+type TxManager interface {
 	Begin(context.Context) (context.Context, error)
-	GetTx(context.Context) (T, error)
+	GetTx(context.Context) (any, error)
 	Commit(context.Context) error
 	Rollback(context.Context) error
 }
@@ -23,7 +25,7 @@ type sqlTxManager struct {
 	db *sql.DB
 }
 
-func NewSqlTxManager(db *sql.DB) TxManager[*sql.Tx] {
+func NewSqlTxManager(db *sql.DB) TxManager {
 	return &sqlTxManager{db}
 }
 
@@ -35,7 +37,7 @@ func (m *sqlTxManager) Begin(ctx context.Context) (context.Context, error) {
 
 	// search for an existing transaction
 
-	beforeTx, err := m.GetTx(ctx)
+	beforeTx, err := m.getSqlTxManagerFromContext(ctx)
 	if err != nil {
 		return ctx, err
 	}
@@ -55,7 +57,7 @@ func (m *sqlTxManager) Begin(ctx context.Context) (context.Context, error) {
 	return context.WithValue(ctx, txContextKey, tx), nil
 }
 
-func (m *sqlTxManager) GetTx(ctx context.Context) (*sql.Tx, error) {
+func (m *sqlTxManager) GetTx(ctx context.Context) (any, error) {
 	if ctx == nil {
 		return nil, nil
 	}
@@ -71,23 +73,34 @@ func (m *sqlTxManager) GetTx(ctx context.Context) (*sql.Tx, error) {
 }
 
 func (m *sqlTxManager) Commit(ctx context.Context) error {
-	tx, err := m.GetTx(ctx)
+	sqlTx, err := m.getSqlTxManagerFromContext(ctx)
 	if err != nil {
 		return err
 	}
-	if tx == nil {
-		return fmt.Errorf(txErrorNoTransactionActive)
-	}
-	return tx.Commit()
+	return sqlTx.Commit()
 }
 
 func (m *sqlTxManager) Rollback(ctx context.Context) error {
-	tx, err := m.GetTx(ctx)
+	sqlTx, err := m.getSqlTxManagerFromContext(ctx)
 	if err != nil {
 		return err
 	}
-	if tx == nil {
-		return fmt.Errorf(txErrorNoTransactionActive)
+	return sqlTx.Rollback()
+}
+
+// private
+
+func (m *sqlTxManager) getSqlTxManagerFromContext(ctx context.Context) (*sql.Tx, error) {
+	tx, err := m.GetTx(ctx)
+	if err != nil {
+		return nil, err
 	}
-	return tx.Rollback()
+	if tx == nil {
+		return nil, fmt.Errorf(txErrorNoTransactionActive)
+	}
+	sqlTx, ok := tx.(*sql.Tx)
+	if !ok {
+		return nil, fmt.Errorf(txErrorNoSqlTransaction)
+	}
+	return sqlTx, nil
 }

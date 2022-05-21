@@ -16,15 +16,15 @@ type SqlTemplate[T any] interface {
 
 type databaseSqlTemplate[T any] struct {
 	db        *sql.DB
-	txManager transaction.TxManager[*sql.Tx]
+	txManager transaction.TxManager
 }
 
-func NewDatabaseSqlTemplate[T any](db *sql.DB, txManager transaction.TxManager[*sql.Tx]) SqlTemplate[T] {
+func NewDatabaseSqlTemplate[T any](db *sql.DB, txManager transaction.TxManager) SqlTemplate[T] {
 	return &databaseSqlTemplate[T]{db, txManager}
 }
 
 func (impl *databaseSqlTemplate[T]) QueryForArray(ctx context.Context, query string, params []interface{}, mapperFunc func(rows *sql.Rows) (T, error)) ([]T, error) {
-	tx, err := impl.txManager.GetTx(ctx)
+	tx, err := impl.getSqlTxManager(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +53,7 @@ func (impl *databaseSqlTemplate[T]) QueryForArray(ctx context.Context, query str
 }
 
 func (impl *databaseSqlTemplate[T]) QueryForOne(ctx context.Context, query string, params []interface{}, mapperFunc func(rows *sql.Rows) (T, error)) (*T, error) {
-	tx, err := impl.txManager.GetTx(ctx)
+	tx, err := impl.getSqlTxManager(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -87,8 +87,7 @@ func (impl *databaseSqlTemplate[T]) QueryForOne(ctx context.Context, query strin
 }
 
 func (impl *databaseSqlTemplate[T]) Exec(ctx context.Context, query string, params []interface{}) (int64, error) {
-
-	tx, err := impl.txManager.GetTx(ctx)
+	tx, err := impl.getSqlTxManager(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -111,4 +110,21 @@ func (impl *databaseSqlTemplate[T]) Exec(ctx context.Context, query string, para
 	}
 
 	return id, nil
+}
+
+// privates
+
+func (impl *databaseSqlTemplate[T]) getSqlTxManager(ctx context.Context) (*sql.Tx, error) {
+	tx, err := impl.txManager.GetTx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if tx == nil {
+		return nil, nil
+	}
+	sqlTx, ok := tx.(*sql.Tx)
+	if !ok {
+		return nil, fmt.Errorf("the transaction is not a sql tx!")
+	}
+	return sqlTx, nil
 }

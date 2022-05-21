@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/erodriguezg/chapter-golang/pkg/demotx"
 	"github.com/erodriguezg/chapter-golang/pkg/persistence/postgresql"
 	"github.com/erodriguezg/chapter-golang/pkg/person"
+	"github.com/erodriguezg/chapter-golang/pkg/pet"
 	"github.com/erodriguezg/chapter-golang/pkg/utils/sqlutils"
 	"github.com/erodriguezg/chapter-golang/pkg/utils/transaction"
 	_ "github.com/jackc/pgx/v4/stdlib"
@@ -16,12 +18,17 @@ import (
 var (
 
 	// Database
-	sqlDatabase *sql.DB
-	txManager   transaction.TxManager[*sql.Tx]
+	sqlDatabase  *sql.DB
+	sqltxManager transaction.TxManager
 
-	// Business
+	// Repositories
 	personRepository person.PersonRepository
-	personService    person.PersonService
+	petRepository    pet.PetRepository
+
+	// Services
+	personService person.PersonService
+	petService    pet.PetService
+	demoTxService demotx.DemoTxService
 )
 
 func ConfigDemoSqlAll() {
@@ -33,11 +40,15 @@ func ConfigDemoSqlAll() {
 
 	// Database
 	sqlDatabase = configPostgresDatabase()
-	txManager = configTxManager()
+	sqltxManager = configSqlTxManager()
 
-	// Business
+	// Repositories
 	personRepository = configPersonRepository()
+	petRepository = configPetRepository()
+
+	// Services
 	personService = configDemoService()
+	demoTxService = configDemoTxService()
 
 }
 
@@ -64,18 +75,34 @@ func configPostgresDatabase() *sql.DB {
 	return db
 }
 
-func configTxManager() transaction.TxManager[*sql.Tx] {
+func configSqlTxManager() transaction.TxManager {
 	panicIfAnyNil(sqlDatabase)
 	return transaction.NewSqlTxManager(sqlDatabase)
 }
 
 func configPersonRepository() person.PersonRepository {
-	panicIfAnyNil(sqlDatabase, txManager)
-	sqlTemplate := sqlutils.NewDatabaseSqlTemplate[person.Person](sqlDatabase, txManager)
+	panicIfAnyNil(sqlDatabase, sqltxManager)
+	sqlTemplate := sqlutils.NewDatabaseSqlTemplate[person.Person](sqlDatabase, sqltxManager)
 	return postgresql.NewPersonRepository(sqlTemplate)
+}
+
+func configPetRepository() pet.PetRepository {
+	panicIfAnyNil(sqlDatabase, sqltxManager)
+	sqlTemplate := sqlutils.NewDatabaseSqlTemplate[pet.Pet](sqlDatabase, sqltxManager)
+	return postgresql.NewPetRepository(sqlTemplate)
 }
 
 func configDemoService() person.PersonService {
 	panicIfAnyNil(personRepository)
 	return person.NewPersonService(personRepository)
+}
+
+func configPetService() pet.PetService {
+	panicIfAnyNil(petRepository)
+	return pet.NewService(petRepository)
+}
+
+func configDemoTxService() demotx.DemoTxService {
+	panicIfAnyNil(personService, petService, sqltxManager)
+	return demotx.NewService(personService, petService, sqltxManager)
 }
