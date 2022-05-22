@@ -5,15 +5,23 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/erodriguezg/chapter-golang/pkg/benchmark"
 	"github.com/erodriguezg/chapter-golang/pkg/config"
 	"github.com/erodriguezg/chapter-golang/pkg/problems"
 )
 
 func main() {
 
+	// main param
 	example := flag.String("example", "", "example to execute")
+
+	// sql params
 	delete := flag.Bool("delete", false, "delete the test data")
 	fail := flag.Bool("fail", false, "force the fail of the transaction")
+
+	// pointer benchmark param
+	maxDeep := flag.Int("max-deep", 1, "the max deep of recursion")
+	arraySize := flag.Int("array-size", 1, "the size of process of the array in the recursion")
 
 	flag.Parse()
 
@@ -31,6 +39,11 @@ func main() {
 	case "no-tx":
 		mainSqlTemplate(false, *delete, *fail)
 
+	case "pointer-bench-by-val":
+		benchmark.BenchmarkByValue(*maxDeep, *arraySize)
+
+	case "pointer-bench-by-ref":
+		benchmark.BenchmarkByRef(*maxDeep, *arraySize)
 	}
 
 }
