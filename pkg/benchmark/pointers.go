@@ -88,9 +88,10 @@ func BenchmarkByRef(maxDeep int, arraySize int) {
 
 func iterateByRef(auxMap map[int64]mapValByRef, thing *something, deep int, maxDeep int, arraySize int) {
 	var thingArray []*something
+	var thingAux *something
 	for i := 0; i < arraySize; i++ {
-		thing := generateSomethingByRef()
-		thingArray = append(thingArray, thing)
+		thingAux = generateSomethingByRef()
+		thingArray = append(thingArray, thingAux)
 	}
 	auxMap[int64(deep)] = mapValByRef{
 		firstSomething: thing,
