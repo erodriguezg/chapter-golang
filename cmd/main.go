@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/erodriguezg/chapter-golang/pkg/benchmark"
+	"github.com/erodriguezg/chapter-golang/pkg/benchmark2"
 	"github.com/erodriguezg/chapter-golang/pkg/config"
 	"github.com/erodriguezg/chapter-golang/pkg/problems"
 )
@@ -19,9 +20,12 @@ func main() {
 	delete := flag.Bool("delete", false, "delete the test data")
 	fail := flag.Bool("fail", false, "force the fail of the transaction")
 
-	// pointer benchmark param
+	// pointer benchmark params
 	maxDeep := flag.Int("max-deep", 1, "the max deep of recursion")
 	arraySize := flag.Int("array-size", 1, "the size of process of the array in the recursion")
+
+	// pointer benchmark2 param
+	iterations := flag.Int("iterations", 1, "amount of iterations for the benchmark 2")
 
 	flag.Parse()
 
@@ -44,6 +48,12 @@ func main() {
 
 	case "pointer-bench-by-ref":
 		benchmark.BenchmarkByRef(*maxDeep, *arraySize)
+
+	case "pointer-bench-2-by-val":
+		benchmark2.BenchmarkByVal(*iterations)
+
+	case "pointer-bench-2-by-ref":
+		benchmark2.BenchmarkByRef(*iterations)
 	}
 
 }
