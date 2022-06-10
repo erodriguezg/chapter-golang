@@ -6,13 +6,22 @@ import (
 	"os"
 
 	"github.com/erodriguezg/chapter-golang/pkg/demotx"
+	"github.com/erodriguezg/chapter-golang/pkg/persistence/mysql"
 	"github.com/erodriguezg/chapter-golang/pkg/persistence/postgresql"
 	"github.com/erodriguezg/chapter-golang/pkg/person"
 	"github.com/erodriguezg/chapter-golang/pkg/pet"
 	"github.com/erodriguezg/chapter-golang/pkg/utils/sqlutils"
 	"github.com/erodriguezg/chapter-golang/pkg/utils/transaction"
+	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/joho/godotenv"
+)
+
+const (
+	databaseTypePostgres = "postgres"
+	databaseTypeMysql    = "mysql"
+
+	errMsgInvalidDatabaseType = "invalid database type"
 )
 
 var (
@@ -31,7 +40,7 @@ var (
 	demoTxService demotx.DemoTxService
 )
 
-func ConfigDemoSqlAll() {
+func ConfigDemoSqlAll(databaseType string) {
 
 	err := godotenv.Load()
 	if err != nil {
@@ -39,12 +48,18 @@ func ConfigDemoSqlAll() {
 	}
 
 	// Database
-	sqlDatabase = configPostgresDatabase()
+	if databaseType == "postgres" {
+		sqlDatabase = configPostgresDatabase()
+
+	} else if databaseType == "mysql" {
+		sqlDatabase = configMysqlDatabase()
+	}
+
 	sqltxManager = configSqlTxManager()
 
 	// Repositories
-	personRepository = configPersonRepository()
-	petRepository = configPetRepository()
+	personRepository = configPersonRepository(databaseType)
+	petRepository = configPetRepository(databaseType)
 
 	// Services
 	personService = configDemoService()
@@ -76,21 +91,48 @@ func configPostgresDatabase() *sql.DB {
 	return db
 }
 
+func configMysqlDatabase() *sql.DB {
+	db, err := sql.Open("mysql", os.Getenv("MYSQL_DATABASE_URL"))
+	db.SetMaxIdleConns(5)
+	db.SetMaxOpenConns(3)
+	if err != nil {
+		panic(err.Error())
+	}
+	return db
+}
+
 func configSqlTxManager() transaction.TxManager {
 	panicIfAnyNil(sqlDatabase)
 	return transaction.NewSqlTxManager(sqlDatabase)
 }
 
-func configPersonRepository() person.PersonRepository {
+func configPersonRepository(databaseType string) person.PersonRepository {
+
 	panicIfAnyNil(sqlDatabase, sqltxManager)
-	sqlTemplate := sqlutils.NewDatabaseSqlTemplate[person.Person](sqlDatabase, sqltxManager)
-	return postgresql.NewPersonRepository(sqlTemplate)
+
+	if databaseType == databaseTypePostgres {
+		sqlTemplate := sqlutils.NewDatabaseSqlTemplate[person.Person](sqlDatabase, sqltxManager)
+		return postgresql.NewPersonRepository(sqlTemplate)
+	} else if databaseType == databaseTypeMysql {
+		sqlTemplate := sqlutils.NewDatabaseSqlTemplate[person.Person](sqlDatabase, sqltxManager)
+		return mysql.NewPersonRepository(sqlTemplate)
+	}
+
+	panic(fmt.Errorf(errMsgInvalidDatabaseType))
 }
 
-func configPetRepository() pet.PetRepository {
+func configPetRepository(databaseType string) pet.PetRepository {
 	panicIfAnyNil(sqlDatabase, sqltxManager)
-	sqlTemplate := sqlutils.NewDatabaseSqlTemplate[pet.Pet](sqlDatabase, sqltxManager)
-	return postgresql.NewPetRepository(sqlTemplate)
+
+	if databaseType == databaseTypePostgres {
+		sqlTemplate := sqlutils.NewDatabaseSqlTemplate[pet.Pet](sqlDatabase, sqltxManager)
+		return postgresql.NewPetRepository(sqlTemplate)
+	} else if databaseType == databaseTypeMysql {
+		sqlTemplate := sqlutils.NewDatabaseSqlTemplate[pet.Pet](sqlDatabase, sqltxManager)
+		return mysql.NewPetRepository(sqlTemplate)
+	}
+
+	panic(fmt.Errorf(errMsgInvalidDatabaseType))
 }
 
 func configDemoService() person.PersonService {

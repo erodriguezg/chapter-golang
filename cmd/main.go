@@ -19,6 +19,7 @@ func main() {
 	// sql params
 	delete := flag.Bool("delete", false, "delete the test data")
 	fail := flag.Bool("fail", false, "force the fail of the transaction")
+	database := flag.String("database", "postgres", "the database type for use. postgres or mysql supported")
 
 	// pointer benchmark params
 	maxDeep := flag.Int("max-deep", 1, "the max deep of recursion")
@@ -38,10 +39,10 @@ func main() {
 		problems.Config()
 
 	case "tx":
-		mainSqlTemplate(true, *delete, *fail)
+		mainSqlTemplate(true, *delete, *fail, *database)
 
 	case "no-tx":
-		mainSqlTemplate(false, *delete, *fail)
+		mainSqlTemplate(false, *delete, *fail, *database)
 
 	case "pointer-bench-by-val":
 		benchmark.BenchmarkByValue(*maxDeep, *arraySize)
@@ -58,11 +59,11 @@ func main() {
 
 }
 
-func mainSqlTemplate(isTx bool, delete bool, fail bool) {
+func mainSqlTemplate(isTx bool, delete bool, fail bool, databaseType string) {
 
 	defer config.CloseDemoSqlAll()
 
-	config.ConfigDemoSqlAll()
+	config.ConfigDemoSqlAll(databaseType)
 
 	fmt.Printf("====> Params: isTx: %t, Delete: %t, Fail: %t", isTx, delete, fail)
 
